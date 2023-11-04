@@ -85,7 +85,7 @@
         <maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.0.0-M3</maven-surefire-plugin.version>
         <maven-invoker-plugin.version>1.10</maven-invoker-plugin.version>
-        <spotless.version>2.6.1</spotless.version>
+        <spotless.version>2.40.0</spotless.version>
     </properties>
 
     <developers>
@@ -458,7 +458,7 @@
                     <configuration>
                         <java>
                             <googleJavaFormat>
-                                <version>1.9</version>
+                                <version>1.18.1</version>
                                 <style>GOOGLE</style>
                             </googleJavaFormat>
                         </java>
