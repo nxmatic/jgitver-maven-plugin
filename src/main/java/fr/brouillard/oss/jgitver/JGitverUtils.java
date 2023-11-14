@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -38,6 +39,7 @@ import org.apache.maven.model.Plugin;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 import org.apache.maven.model.io.xpp3.MavenXpp3Writer;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.settings.Profile;
 import org.codehaus.plexus.logging.Logger;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
@@ -421,6 +423,21 @@ public final class JGitverUtils {
       logger.debug(
           String.format("Found '%s'='%s' in user properties", normalizedSystemPropertyName, value));
       return Optional.of(value);
+    }
+
+    List<Profile> activeProfiles = session.getSettings().getProfiles();
+    Optional<String> profileValue =
+        activeProfiles.stream()
+            .map(
+                profile ->
+                    Optional.ofNullable(profile.getProperties().getProperty(propertyName))
+                        .orElse(profile.getProperties().getProperty(normalizedSystemPropertyName)))
+            .filter(Objects::nonNull)
+            .findFirst();
+    if (profileValue.isPresent()) {
+      logger.debug(
+          String.format("Found '%s'='%s' in active profiles", propertyName, profileValue.get()));
+      return profileValue;
     }
 
     final String envPrefix = "env.";
