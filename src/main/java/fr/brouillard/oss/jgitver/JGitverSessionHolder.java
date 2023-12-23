@@ -15,18 +15,53 @@
  */
 package fr.brouillard.oss.jgitver;
 
+import com.google.inject.Singleton;
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
-import org.codehaus.plexus.component.annotations.Component;
+import javax.inject.Named;
+import org.apache.maven.execution.MavenExecutionRequest;
+import org.apache.maven.execution.MavenSession;
 
-@Component(role = JGitverSessionHolder.class, instantiationStrategy = "singleton")
+/**
+ * Holds JGitverSession instances for different Maven sessions. This class is designed to be
+ * compatible with m2e, where each project in the workspace is built separately with its own
+ * MavenSession. Therefore, each MavenSession (identified by its root directory) can have its own
+ * JGitverSession.
+ */
+@Named
+@Singleton
 public class JGitverSessionHolder {
-  private JGitverSession session = null;
+  private Map<File, JGitverSession> sessions = new HashMap<>();
 
-  public void setSession(JGitverSession session) {
-    this.session = session;
+  /**
+   * Associates a JGitverSession with a MavenSession. The JGitverSession is identified by the root
+   * directory of the MavenSession. The root directory is retrieved from the MavenSession's
+   * request's multi-module project directory.
+   *
+   * @param mavenSession the MavenSession, its request's multi-module project directory is used as
+   *     the key
+   * @param jgitverSession the JGitverSession to be associated with the MavenSession
+   */
+  public void setSession(MavenSession mavenSession, JGitverSession jgitverSession) {
+    this.sessions.put(mavenSession.getRequest().getMultiModuleProjectDirectory(), jgitverSession);
   }
 
-  public Optional<JGitverSession> session() {
-    return Optional.ofNullable(session);
+  /**
+   * Retrieves the JGitverSession associated with a MavenSession. The JGitverSession is identified
+   * by the root directory of the MavenSession. The root directory is retrieved from the
+   * MavenSession's request's multi-module project directory.
+   *
+   * @param mavenSession the MavenSession, its request's multi-module project directory is used as
+   *     the key
+   * @return the JGitverSession associated with the MavenSession, or an empty Optional if no session
+   *     is associated
+   */
+  public Optional<JGitverSession> session(MavenSession mavenSession) {
+    return Optional.ofNullable(mavenSession)
+        .map(MavenSession::getRequest)
+        .map(MavenExecutionRequest::getMultiModuleProjectDirectory)
+        .map(sessions::get);
   }
 }

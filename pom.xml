@@ -20,7 +20,7 @@
 
     <groupId>fr.brouillard.oss</groupId>
     <artifactId>jgitver-maven-plugin</artifactId>
-    <version>0</version>
+    <version>0.0.0-dev</version>
     <packaging>maven-plugin</packaging>
 
     <name>jgitver Maven Plugin</name>
@@ -68,7 +68,6 @@
         <!-- dependencies versions as properties -->
         <jgitver.version>0.0.0-dev</jgitver.version>
         <maven-core.version>3.3.9</maven-core.version>
-        <plexus-utils.version>3.1.0</plexus-utils.version>
         <maven-plugin-annotations.version>3.2</maven-plugin-annotations.version>
         <plexus-component-annotations.version>1.5.5</plexus-component-annotations.version>
         <commons-lang3.version>3.4</commons-lang3.version>
@@ -76,6 +75,7 @@
         <junit.version>4.13.1</junit.version>
         <easymock.version>4.0.2</easymock.version>
         <simple-xml.version>2.7.1</simple-xml.version>
+	<slf4j.version>2.0.9</slf4j.version>
 
         <!-- plugins versions as properties -->
         <plexus-component-metadata.version>1.7.1</plexus-component-metadata.version>
@@ -124,6 +124,38 @@
         </developer>
     </developers>
 
+    <dependencyManagement>
+      <dependencies>
+	<dependency>
+	  <groupId>org.apache.maven.extensions</groupId>
+	  <artifactId>maven-extensions</artifactId>
+	  <version>39</version>
+	  <scope>import</scope>
+	  <type>pom</type>
+	</dependency>
+	<dependency>
+	  <groupId>org.apache.maven</groupId>
+	  <artifactId>maven-plugin-api</artifactId>
+	  <version>${maven-core.version}</version>
+	  <scope>import</scope>
+	  <type>pom</type>
+	</dependency>
+	<!-- Other plugin API dependencies -->
+	<dependency>
+	  <groupId>org.apache.maven</groupId>
+	  <artifactId>maven-compat</artifactId>
+          <version>${maven-core.version}</version>
+	  <scope>provided</scope>
+	</dependency>
+	<dependency>
+	  <groupId>org.apache.maven</groupId>
+	  <artifactId>maven-core</artifactId>
+          <version>${maven-core.version}</version>
+	  <scope>provided</scope>
+	</dependency>
+      </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>com.google.inject</groupId>
@@ -139,31 +171,26 @@
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-plugin-api</artifactId>
-            <version>${maven-core.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.maven.plugin-tools</groupId>
             <artifactId>maven-plugin-annotations</artifactId>
-            <version>${maven-plugin-annotations.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.codehaus.plexus</groupId>
             <artifactId>plexus-utils</artifactId>
-            <version>${plexus-utils.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-core</artifactId>
-            <version>${maven-core.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.codehaus.plexus</groupId>
             <artifactId>plexus-component-annotations</artifactId>
-            <version>${plexus-component-annotations.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -180,6 +207,12 @@
             <groupId>org.simpleframework</groupId>
             <artifactId>simple-xml</artifactId>
             <version>${simple-xml.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+	    <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -199,16 +232,46 @@
             <version>${easymock.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+          <groupId>org.commonjava.maven.ext</groupId>
+          <artifactId>pom-manipulation-io</artifactId>
+          <version>0.0.0-dev</version>
+        </dependency>
     </dependencies>
 
     <build>
         <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+            </resource>
             <resource>
                 <directory>src/main/resources-filtered</directory>
                 <filtering>true</filtering>
             </resource>
         </resources>
         <plugins>
+            <plugin>
+                <artifactId>maven-site-plugin</artifactId>
+                <version>3.12.1</version>
+            </plugin>
+            <plugin>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+            </plugin>
+            <plugin>
+                <artifactId>maven-install-plugin</artifactId>
+                <version>3.1.1</version>
+            </plugin>
+            <plugin>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>3.1.1</version>
+            </plugin>
+            <plugin>
+  	        <groupId>fr.brouillard.oss</groupId>
+                <artifactId>jgitver-maven-plugin</artifactId>
+                <version>0.0.0-dev</version>
+            </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven-compiler-plugin.version}</version>
@@ -225,6 +288,23 @@
                     </execution>
                 </executions>
             </plugin>
+	    <plugin>
+              <groupId>org.eclipse.sisu</groupId>
+              <artifactId>sisu-maven-plugin</artifactId>
+	      <version>0.9.0.M2</version>
+              <executions>
+		<execution>
+		  <id>index-dependencies</id>
+		  <phase>prepare-package</phase>
+		  <goals>
+		    <goal>index</goal>
+		  </goals>
+		  <configuration>
+		    <includeGroupIds>org.commonjava</includeGroupIds>
+		  </configuration>
+		</execution>
+              </executions>
+	    </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-plugin-plugin</artifactId>
@@ -376,7 +456,7 @@
                                         </goals>
                                     </pluginExecutionFilter>
                                     <action>
-                                        <ignore></ignore>
+                                        <ignore />
                                     </action>
                                 </pluginExecution>
                                 <pluginExecution>
@@ -389,7 +469,7 @@
                                         </goals>
                                     </pluginExecutionFilter>
                                     <action>
-                                        <ignore></ignore>
+                                        <ignore />
                                     </action>
                                 </pluginExecution>
                                 <pluginExecution>
@@ -404,7 +484,7 @@
                                         </goals>
                                     </pluginExecutionFilter>
                                     <action>
-                                        <ignore></ignore>
+                                        <ignore />
                                     </action>
                                 </pluginExecution>
                                 <pluginExecution>
@@ -425,7 +505,7 @@
                                 		</goals>
                                 	</pluginExecutionFilter>
                                 	<action>
-                                		<ignore></ignore>
+                                		<ignore />
                                 	</action>
                                 </pluginExecution>
                                 <pluginExecution>
@@ -444,7 +524,7 @@
                                 		</goals>
                                 	</pluginExecutionFilter>
                                 	<action>
-                                		<ignore></ignore>
+                                		<ignore />
                                 	</action>
                                 </pluginExecution>
                             </pluginExecutions>
@@ -577,7 +657,6 @@
         <profile>
             <id>changelog</id>
             <activation>
-                <activeByDefault>false</activeByDefault>
             </activation>
             <build>
                 <plugins>
@@ -788,5 +867,29 @@
                 </repository>
             </repositories>
         </profile>
+	<!-- should go in a dedicated pom and injected by manipulation  -->
+	<profile>
+	  <id>redhat-ga</id>
+	  <activation>
+	    <activeByDefault>true</activeByDefault>
+	  </activation>
+	  <repositories>
+	    <repository>
+	      <id>redhat-ga</id>
+	      <url>https://maven.repository.redhat.com/ga/</url>
+	      <releases>
+		<enabled>true</enabled>
+		<checksumPolicy>fail</checksumPolicy>
+		<updatePolicy>never</updatePolicy>
+	      </releases>
+	      <snapshots>
+		<enabled>false</enabled>
+	      </snapshots>
+	    </repository>
+	  </repositories>
+	</profile>
     </profiles>
 </project>
+<!--
+Modified by POM Manipulation Extension for Maven jgitver Maven Plugin (VERSION: 0.0.0-dev, SHA: null)
+-->
