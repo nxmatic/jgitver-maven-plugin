@@ -20,8 +20,18 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.Optional;
 import java.util.Set;
-import org.simpleframework.xml.*;
+import java.util.function.Predicate;
+import org.commonjava.maven.ext.common.json.ModulesItem;
+import org.commonjava.maven.ext.common.json.PME;
+import org.simpleframework.xml.Default;
+import org.simpleframework.xml.DefaultType;
+import org.simpleframework.xml.Element;
+import org.simpleframework.xml.ElementList;
+import org.simpleframework.xml.Root;
+import org.simpleframework.xml.Serializer;
+import org.simpleframework.xml.Transient;
 import org.simpleframework.xml.convert.AnnotationStrategy;
 import org.simpleframework.xml.core.Persister;
 import org.simpleframework.xml.strategy.Strategy;
@@ -104,5 +114,27 @@ public class JGitverSession {
     Strategy strategy = new AnnotationStrategy();
     Serializer serializer = new Persister(strategy);
     return serializer.read(JGitverSession.class, content);
+  }
+
+  /**
+   * Retrieves the original GroupId, ArtifactId, Version (GAV) from the POM manipulation report.
+   * This method is used to get the original GAV that was processed, instead of the one read from
+   * the manipulated POM.
+   *
+   * @param gav The GAV of the module for which the original GAV is to be retrieved.
+   * @return The original GAV as a string. If the original GAV is not found in the report, returns
+   *     the string representation of the input GAV.
+   */
+  public String getOriginalGAV(GAV gav, Optional<PME> manipulatingReport) {
+    Predicate<ModulesItem> isGroup =
+        module -> module.getGav().getGroupId().equals(gav.getGroupId());
+    Predicate<ModulesItem> isArtifact =
+        module -> module.getGav().getArtifactId().equals(gav.getArtifactId());
+
+    return manipulatingReport
+        .flatMap(report -> report.getModules().stream().filter(isGroup.and(isArtifact)).findFirst())
+        .map(ModulesItem::getGav)
+        .map(org.commonjava.maven.ext.common.json.GAV::getOriginalGAV)
+        .orElse(gav.toString());
   }
 }

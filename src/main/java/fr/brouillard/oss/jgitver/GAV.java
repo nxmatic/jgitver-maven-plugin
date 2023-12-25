@@ -15,6 +15,7 @@
  */
 package fr.brouillard.oss.jgitver;
 
+import java.util.Optional;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Parent;
 import org.apache.maven.project.MavenProject;
@@ -24,6 +25,8 @@ public class GAV { // SUPPRESS CHECKSTYLE AbbreviationAsWordInName
   private String groupId;
   private String artifactId;
   private String version;
+
+  private GAV original;
 
   public GAV() {}
 
@@ -77,6 +80,14 @@ public class GAV { // SUPPRESS CHECKSTYLE AbbreviationAsWordInName
 
   public void setVersion(String version) {
     this.version = version;
+  }
+
+  public Optional<GAV> getOriginal() {
+    return Optional.ofNullable(original);
+  }
+
+  public void setOriginal(GAV gav) {
+    this.original = gav;
   }
 
   /**

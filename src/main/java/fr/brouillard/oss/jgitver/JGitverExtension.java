@@ -38,6 +38,7 @@ import org.apache.maven.model.building.ModelProcessor;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.classworlds.realm.ClassRealm;
 import org.codehaus.plexus.logging.Logger;
+import org.commonjava.maven.ext.core.ManipulatingExtensionBridge;
 
 @Named("jgitver")
 @Singleton
@@ -51,6 +52,8 @@ public class JGitverExtension extends AbstractMavenLifecycleParticipant {
   @Inject private JGitverSessionHolder sessionHolder;
 
   @Inject private JGitverConfiguration configurationProvider;
+
+  @Inject private ManipulatingExtensionBridge manipulatingBridge;
 
   /**
    * Called after the Maven session starts. If jgitver is not skipped, it opens a new JGitverSession
@@ -121,7 +124,11 @@ public class JGitverExtension extends AbstractMavenLifecycleParticipant {
                       .forEach(
                           gav ->
                               logger.info(
-                                  "    " + gav.toString() + " -> " + jgitverSession.getVersion()));
+                                  "    "
+                                      + jgitverSession.getOriginalGAV(
+                                          gav, manipulatingBridge.readReport(mavenSession))
+                                      + " -> "
+                                      + jgitverSession.getVersion()));
                 });
       }
     } catch (IOException ex) {
@@ -351,6 +358,4 @@ public class JGitverExtension extends AbstractMavenLifecycleParticipant {
       return new JGitverSession(infoProvider, rootDirectory);
     }
   }
-
-  //    return map.values().stream().flatMap(List::stream).collect(Collectors.toList());
 }

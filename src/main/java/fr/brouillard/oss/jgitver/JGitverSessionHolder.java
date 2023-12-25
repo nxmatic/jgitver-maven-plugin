@@ -33,7 +33,26 @@ import org.apache.maven.execution.MavenSession;
 @Named
 @Singleton
 public class JGitverSessionHolder {
-  private Map<File, JGitverSession> sessions = new HashMap<>();
+  private Map<File, Info> sessions = new HashMap<>();
+
+  class Info {
+    final JGitverSession session;
+
+    final MavenSession mavenSession;
+
+    Info(MavenSession mavenSession, JGitverSession session) {
+      this.session = session;
+      this.mavenSession = mavenSession;
+    }
+
+    JGitverSession session() {
+      return session;
+    }
+
+    String mavenVersion() {
+      throw new UnsupportedOperationException("should see");
+    }
+  }
 
   /**
    * Associates a JGitverSession with a MavenSession. The JGitverSession is identified by the root
@@ -45,7 +64,9 @@ public class JGitverSessionHolder {
    * @param jgitverSession the JGitverSession to be associated with the MavenSession
    */
   public void setSession(MavenSession mavenSession, JGitverSession jgitverSession) {
-    this.sessions.put(mavenSession.getRequest().getMultiModuleProjectDirectory(), jgitverSession);
+    this.sessions.put(
+        mavenSession.getRequest().getMultiModuleProjectDirectory(),
+        new Info(mavenSession, jgitverSession));
   }
 
   /**
@@ -62,6 +83,7 @@ public class JGitverSessionHolder {
     return Optional.ofNullable(mavenSession)
         .map(MavenSession::getRequest)
         .map(MavenExecutionRequest::getMultiModuleProjectDirectory)
-        .map(sessions::get);
+        .map(sessions::get)
+        .map(Info::session);
   }
 }

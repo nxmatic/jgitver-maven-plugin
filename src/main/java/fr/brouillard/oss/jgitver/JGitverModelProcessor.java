@@ -48,7 +48,6 @@ import org.apache.maven.model.Scm;
 import org.apache.maven.model.building.DefaultModelProcessor;
 import org.apache.maven.model.building.ModelProcessor;
 import org.apache.maven.plugin.LegacySupport;
-import org.codehaus.plexus.classworlds.realm.ClassRealm;
 import org.codehaus.plexus.logging.Logger;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 
@@ -82,8 +81,8 @@ public class JGitverModelProcessor extends DefaultModelProcessor {
    */
   @Inject
   void initialize() {
-    ClassRealm currentClassLoader = (ClassRealm) this.getClass().getClassLoader();
     if (!JGitverUtils.isRunningAsAnExtension()) {
+      logger.warn("Running outside of the extension, skipping");
       return;
     }
     provisioner = this::provisionModelSneakyThrow;
@@ -121,91 +120,90 @@ public class JGitverModelProcessor extends DefaultModelProcessor {
     if (!optSession.isPresent()) {
       // don't do anything in case no jgitver is there (execution could have been skipped)
       return model;
-    } else {
+    }
 
-      Source source = (Source) options.get(ModelProcessor.SOURCE);
-      if (source == null) {
-        return model;
+    Source source = (Source) options.get(ModelProcessor.SOURCE);
+    if (source == null) {
+      return model;
+    }
+
+    File location = new File(source.getLocation());
+    if (!location.isFile()) {
+      // their JavaDoc says Source.getLocation "could be a local file path, a URI or just an empty
+      // string."
+      // if it doesn't resolve to a file then calling .getParentFile will throw an exception,
+      // but if it doesn't resolve to a file then it isn't under getMultiModuleProjectDirectory,
+      return model; // therefore the model shouldn't be modified.
+    }
+
+    if (configurationProvider.ignore(location)) {
+      logger.debug("file " + location + " ignored by configuration");
+      return model;
+    }
+
+    JGitverSession jgitverSession = optSession.get();
+    File relativePath = location.getParentFile().getCanonicalFile();
+    File multiModuleDirectory = jgitverSession.getMultiModuleDirectory();
+    String calculatedVersion = jgitverSession.getVersion();
+
+    if (!StringUtils.containsIgnoreCase(
+        relativePath.getCanonicalPath(), multiModuleDirectory.getCanonicalPath())) {
+      logger.debug("skipping Model from " + location);
+      return model;
+    }
+    logger.debug("handling version of project Model from " + location);
+
+    jgitverSession.addProject(GAV.from(model.clone()));
+
+    if (Objects.nonNull(model.getVersion())) {
+      // TODO evaluate how to set the version only when it was originally set in the pom file
+      model.setVersion(calculatedVersion);
+    }
+
+    if (Objects.nonNull(model.getParent())) {
+      // if the parent is part of the multi module project, let's update the parent version
+      String modelParentRelativePath = model.getParent().getRelativePath();
+      File relativePathParent =
+          new File(relativePath.getCanonicalPath() + File.separator + modelParentRelativePath)
+              .getParentFile()
+              .getCanonicalFile();
+      if (StringUtils.isNotBlank(modelParentRelativePath)
+          && StringUtils.containsIgnoreCase(
+              relativePathParent.getCanonicalPath(), multiModuleDirectory.getCanonicalPath())) {
+        model.getParent().setVersion(calculatedVersion);
       }
+    }
 
-      File location = new File(source.getLocation());
-      if (!location.isFile()) {
-        // their JavaDoc says Source.getLocation "could be a local file path, a URI or just an empty
-        // string."
-        // if it doesn't resolve to a file then calling .getParentFile will throw an exception,
-        // but if it doesn't resolve to a file then it isn't under getMultiModuleProjectDirectory,
-        return model; // therefore the model shouldn't be modified.
-      }
-
-      if (configurationProvider.ignore(location)) {
-        logger.debug("file " + location + " ignored by configuration");
-        return model;
-      }
-
-      JGitverSession jgitverSession = optSession.get();
-      File relativePath = location.getParentFile().getCanonicalFile();
-      File multiModuleDirectory = jgitverSession.getMultiModuleDirectory();
-      String calculatedVersion = jgitverSession.getVersion();
-
-      if (StringUtils.containsIgnoreCase(
-          relativePath.getCanonicalPath(), multiModuleDirectory.getCanonicalPath())) {
-        logger.debug("handling version of project Model from " + location);
-
-        jgitverSession.addProject(GAV.from(model.clone()));
-
-        if (Objects.nonNull(model.getVersion())) {
-          // TODO evaluate how to set the version only when it was originally set in the pom file
-          model.setVersion(calculatedVersion);
-        }
-
-        if (Objects.nonNull(model.getParent())) {
-          // if the parent is part of the multi module project, let's update the parent version
-          String modelParentRelativePath = model.getParent().getRelativePath();
-          File relativePathParent =
-              new File(relativePath.getCanonicalPath() + File.separator + modelParentRelativePath)
-                  .getParentFile()
-                  .getCanonicalFile();
-          if (StringUtils.isNotBlank(modelParentRelativePath)
-              && StringUtils.containsIgnoreCase(
-                  relativePathParent.getCanonicalPath(), multiModuleDirectory.getCanonicalPath())) {
-            model.getParent().setVersion(calculatedVersion);
-          }
-        }
-
-        // we should only register the plugin once, on the main project
-        if (relativePath.getCanonicalPath().equals(multiModuleDirectory.getCanonicalPath())) {
-          if (JGitverUtils.shouldUseFlattenPlugin(session)) {
-            if (shouldSkipPomUpdate(model)) {
-              logger.info(
-                  "skipPomUpdate property is activated, jgitver will not define any maven-flatten-plugin execution");
-            } else {
-              if (isFlattenPluginDirectlyUsed(model)) {
-                logger.info(
-                    "maven-flatten-plugin detected, jgitver will not define it's own execution");
-              } else {
-                logger.info("adding maven-flatten-plugin execution with jgitver defaults");
-                addFlattenPlugin(model);
-              }
-            }
+    // we should only register the plugin once, on the main project
+    if (relativePath.getCanonicalPath().equals(multiModuleDirectory.getCanonicalPath())) {
+      if (JGitverUtils.shouldUseFlattenPlugin(session)) {
+        if (shouldSkipPomUpdate(model)) {
+          logger.info(
+              "skipPomUpdate property is activated, jgitver will not define any maven-flatten-plugin execution");
+        } else {
+          if (isFlattenPluginDirectlyUsed(model)) {
+            logger.info(
+                "maven-flatten-plugin detected, jgitver will not define it's own execution");
           } else {
-            addAttachPomMojo(model);
+            logger.info("adding maven-flatten-plugin execution with jgitver defaults");
+            addFlattenPlugin(model);
           }
-
-          updateScmTag(jgitverSession.getCalculator(), model);
-        }
-
-        try {
-          session
-              .getUserProperties()
-              .put(
-                  JGitverUtils.SESSION_MAVEN_PROPERTIES_KEY,
-                  JGitverSession.serializeTo(jgitverSession));
-        } catch (Exception ex) {
-          throw new IOException("cannot serialize JGitverSession", ex);
         }
       } else {
-        logger.debug("skipping Model from " + location);
+        addAttachPomMojo(model);
       }
+
+      updateScmTag(jgitverSession.getCalculator(), model);
+    }
+
+    try {
+      session
+          .getUserProperties()
+          .put(
+              JGitverUtils.SESSION_MAVEN_PROPERTIES_KEY,
+              JGitverSession.serializeTo(jgitverSession));
+    } catch (Exception ex) {
+      throw new IOException("cannot serialize JGitverSession", ex);
     }
 
     return model;

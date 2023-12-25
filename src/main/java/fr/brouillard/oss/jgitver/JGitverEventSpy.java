@@ -17,8 +17,8 @@
 package fr.brouillard.oss.jgitver;
 
 import fr.brouillard.oss.jgitver.lambda.ThrowingFunction;
-import java.io.File;
-import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -26,6 +26,7 @@ import org.apache.maven.eventspy.AbstractEventSpy;
 import org.apache.maven.execution.ExecutionEvent;
 import org.apache.maven.execution.ExecutionEvent.Type;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Model;
 import org.commonjava.maven.ext.common.ManipulationException;
 import org.commonjava.maven.ext.common.model.Project;
 
@@ -84,52 +85,51 @@ public class JGitverEventSpy extends AbstractEventSpy {
       MavenSession mavenSession = ee.getSession();
       sessionHolder
           .session(mavenSession)
-          .ifPresent(
-              session ->
-                  parsePOM(mavenSession.getRequest().getPom()).stream()
-                      .filter(Project::isExecutionRoot)
-                      .findFirst()
-                      .ifPresent(
-                          project -> this.onProject(mavenSession, project, session.getVersion())));
-
+          .ifPresent(session -> this.onProject(mavenSession, session));
     } finally {
       super.onEvent(event);
     }
   }
 
   /**
-   * Parses the provided POM file into a list of Project instances. This method uses the {@link
-   * JGitverPomIO} instance to read the POM file. The logic for this method is based onto the
-   * maven-pom-manipulation plugin IO module.
+   * Parses the requested project POM file into a list of Project modules and updates their version
+   * using the JGitver computed version.
    *
-   * @param pomFile the POM file to parse
-   * @return a list of Project instances representing the projects defined in the POM file
-   * @throws ManipulationException if an error occurs while parsing the POM file
+   * <p>This method uses the {@link PomIO} to write the POM file. The logic for this method is
+   * mainly based onto the maven-pom-manipulation plugin IO module.
+   *
+   * @param session the current JGitver session
+   * @param mavenSession the related maven session
+   * @throws ManipulationException if an error occurs while manipulating the POM file (sneaky
+   *     thrown)
    */
-  List<Project> parsePOM(File pomFile) {
+  void onProject(MavenSession mavenSession, JGitverSession session) {
     try {
-      return pomIO.parseProject(pomFile);
+      Set<Project> modules =
+          pomIO.parseProject(mavenSession.getRequest().getPom()).stream()
+              .peek(project -> setVersionOf(mavenSession, session, project))
+              .collect(Collectors.toSet());
+
+      pomIO.writeTemporaryPOMs(modules);
     } catch (ManipulationException error) {
-      return ThrowingFunction.sneakyThrow(error);
+      ThrowingFunction.sneakyThrow(error);
     }
   }
 
   /**
-   * Updates the version of the provided project and writes the project's POM to disk. This method
-   * uses the {@link JGitverPomIO} instance to write the POM file. The logic for this method is
-   * based onto the maven-pom-manipulation plugin IO module.
+   * Set the module maven version of the module according to the JGitver computed version.
    *
-   * @param mavenSession the current Maven session
-   * @param project the project whose version should be updated
-   * @param version the new version for the project
-   * @throws ManipulationException if an error occurs while writing the POM file
+   * @param session the JGitver session
+   * @return module the manipulated model of the module
    */
-  void onProject(MavenSession mavenSession, Project project, String version) {
-    project.getModel().setVersion(version);
-    try {
-      pomIO.writePOM(project);
-    } catch (ManipulationException error) {
-      ThrowingFunction.sneakyThrow(error);
+  void setVersionOf(MavenSession mavenSession, JGitverSession session, Project module) {
+    final Model model = module.getModel();
+    final String version = session.getVersion();
+    model.setVersion(version);
+    if (module.isExecutionRoot()) {
+      mavenSession.getRequest().setPom(pomIO.withUseVersion.apply(module.getPom()));
+    } else {
+      model.getParent().setVersion(version);
     }
   }
 }

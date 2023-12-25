@@ -556,11 +556,11 @@ public final class JGitverUtils {
    * @return true if the current context is running as an extension, false otherwise.
    */
   public static boolean isRunningAsAnExtension() {
-    ClassLoader tcl = Thread.currentThread().getContextClassLoader();
-    if (!ClassRealm.class.isAssignableFrom(tcl.getClass())) {
+    ClassLoader cl = JGitverUtils.class.getClassLoader();
+    if (!ClassRealm.class.isAssignableFrom(cl.getClass())) {
       return false;
     }
-    ClassRealm realm = ClassRealm.class.cast(tcl);
+    ClassRealm realm = ClassRealm.class.cast(cl);
     return realm.getId().contains(PLUGIN_GAV);
   }
 
