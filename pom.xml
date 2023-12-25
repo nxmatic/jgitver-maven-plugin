@@ -20,7 +20,7 @@
 
     <groupId>fr.brouillard.oss</groupId>
     <artifactId>jgitver-maven-plugin</artifactId>
-    <version>0.0.0-dev</version>
+    <version>0</version>
     <packaging>maven-plugin</packaging>
 
     <name>jgitver Maven Plugin</name>
@@ -237,6 +237,11 @@
           <artifactId>pom-manipulation-io</artifactId>
           <version>0.0.0-dev</version>
         </dependency>
+        <dependency>
+          <groupId>org.commonjava.maven.ext</groupId>
+          <artifactId>pom-manipulation-core</artifactId>
+          <version>0.0.0-dev</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -266,11 +271,6 @@
             <plugin>
                 <artifactId>maven-deploy-plugin</artifactId>
                 <version>3.1.1</version>
-            </plugin>
-            <plugin>
-  	        <groupId>fr.brouillard.oss</groupId>
-                <artifactId>jgitver-maven-plugin</artifactId>
-                <version>0.0.0-dev</version>
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -890,6 +890,3 @@
 	</profile>
     </profiles>
 </project>
-<!--
-Modified by POM Manipulation Extension for Maven jgitver Maven Plugin (VERSION: 0.0.0-dev, SHA: null)
--->
